@@ -24,7 +24,7 @@ def load_data():
     hotel_info = pd.read_csv("data_clean/hotel_info.csv")
     hotel_comments = pd.read_csv("data_clean/hotel_comments.csv")
     hotel_comments["Review_Date"] = pd.to_datetime(hotel_comments["Review_Date"], errors="coerce")
-    hotel_corpus_cosine = pd.read_csv("data_clean/hotel_corpus_cosine.csv"))
+    hotel_corpus_cosine = pd.read_csv("data_clean/hotel_corpus_cosine.csv")
     return hotel_info, hotel_comments, hotel_corpus_cosine
 
 @st.cache_resource
