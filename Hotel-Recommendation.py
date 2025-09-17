@@ -25,6 +25,7 @@ def load_data():
     hotel_comments = pd.read_csv("data_clean/hotel_comments.csv")
     hotel_comments["Review_Date"] = pd.to_datetime(hotel_comments["Review_Date"], errors="coerce")
     hotel_corpus_cosine = pd.read_csv("data_clean/hotel_corpus_cosine.csv")
+    hotel_info.columns = hotel_info.columns.str.strip()
     return hotel_info, hotel_comments, hotel_corpus_cosine
 
 @st.cache_resource
@@ -399,15 +400,30 @@ if menu == "Business Problem":
 # --------------------------
 elif menu == "New Prediction":
     st.title("🔮 New Prediction")
-
     option = st.selectbox("Chọn phương pháp:", ["Cosine TF-IDF"])
-    
-    if option in ["Cosine TF-IDF"]:
-        keyword = st.text_input("Nhập từ khóa (VD: Nha Trang, Da Nang, Beach...)", "")
+    if option == "Cosine TF-IDF":
+        # Dropdown khách sạn
+        hotel_options = sorted(hotel_corpus_cosine["Hotel_Name"].unique())
+        selected_hotel = st.selectbox("🏨 Chọn khách sạn:", [""] + hotel_options)
+
+        # Nếu muốn vẫn nhập từ khóa
+        keyword = st.text_input("🔎 Hoặc nhập từ khóa (VD: Da Nang, Beach...)")
+
         if st.button("Tìm kiếm"):
-            results = recommend_hotels_by_keyword(hotel_corpus_cosine, cosine_similarity_matrix, keyword, top_k=10)
+            if selected_hotel:
+                results = recommend_hotels_by_keyword(
+                    hotel_corpus_cosine, cosine_similarity_matrix,
+                    keyword=selected_hotel, top_k=10)
+            elif keyword:
+                results = recommend_hotels_by_keyword(
+                    hotel_corpus_cosine, cosine_similarity_matrix,
+                    keyword=keyword, top_k=10)
+            else:
+                results = pd.DataFrame()
             if not results.empty:
                 st.dataframe(results)
+            else:
+                st.warning("⚠️ Không tìm thấy kết quả phù hợp.")
 
 # --------------------------
 # BUSINESS INSIGHT
@@ -418,26 +434,15 @@ elif menu == "Business Insight":
     # Dropdown chọn khách sạn
     hotel_options = sorted(hotel_info["Hotel_Name"].unique())
     selected_hotel = st.selectbox("🏨 Chọn khách sạn:", [""] + hotel_options)
-
+    print(hotel_info["Hotel_Name"].head())
     # Hoặc nhập keyword / Hotel_ID
     keyword = st.text_input("🔎 Nhập từ khóa (VD: Da Nang, Beach...):")
 
     if st.button("Phân tích"):
         if selected_hotel:
-            insights = business_insight(
-                hotel_info, hotel_comments,
-                keyword=selected_hotel
-            )
+            insights = business_insight(hotel_info, hotel_comments,keyword=selected_hotel)
         elif keyword:
-            insights = business_insight(
-                hotel_info, hotel_comments,
-                keyword=keyword
-            )
-        elif hotel_id:
-            insights = business_insight(
-                hotel_info, hotel_comments,
-                hotel_id=int(hotel_id)
-            )
+            insights = business_insight(hotel_info, hotel_comments,keyword=keyword)
         else:
             st.warning("⚠️ Vui lòng chọn khách sạn, nhập keyword hoặc Hotel_ID.")
 # --------------------------
@@ -445,14 +450,19 @@ elif menu == "Business Insight":
 # --------------------------
 if menu == "Final Report":
     st.title("📑 Final Report")
-    if "df" in st.session_state:
-        if st.button("📑 Generate PDF Report"):
-            filename = generate_pdf_report(st.session_state["df"])
-            st.success(f"✅ Report generated: {filename}")
-            with open(filename, "rb") as f:
-                st.download_button("📥 Download Report", f, file_name=filename)
+    pdf_path = "Final_Report.pdf"   # đổi thành file PDF nghiên cứu bạn muốn show
+    if os.path.exists(pdf_path):
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+        # Hiển thị trong app
+        import base64
+        base64_pdf = base64.b64encode(pdf_bytes).decode("utf-8")
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+        st.markdown(pdf_display, unsafe_allow_html=True)
+        # Nút download
+        st.download_button("📥 Download Research PDF", pdf_bytes, file_name="research_report.pdf", mime="application/pdf")
     else:
-        st.warning("⚠️ Please upload data first.")
+        st.warning("⚠️ Chưa có file PDF nghiên cứu (research_report.pdf).")
 # --------------------------
 # TEAM INFO
 # --------------------------
@@ -462,3 +472,13 @@ elif menu == "Team Info":
     **Thành viên nhóm**   
     - Nguyễn Lê Ngọc Bích - ngocbich.892k1@gmail.com  
     """)
+# DATA CHECK
+# --------------------------
+st.sidebar.title("🔎 Data Check")
+if st.sidebar.checkbox("Xem hotel_info"):
+    st.subheader("📋 Hotel Info")
+    st.dataframe(hotel_info.head(20))
+
+if st.sidebar.checkbox("Xem hotel_comments"):
+    st.subheader("💬 Hotel Comments")
+    st.dataframe(hotel_comments.head(20))
